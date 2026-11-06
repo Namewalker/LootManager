@@ -1,0 +1,41 @@
+name: LootManager
+version: 1.0.0-SNAPSHOT
+main: com.lootmanager.LootManagerPlugin
+api-version: 1.12
+description: Comprehensive loot generation, table management, and world-region scanning plugin.
+commands:
+  loot:
+    description: Main LootManager command entry point.
+    usage: /loot <table|region|fillworld|preview|stats|reload>
+    permission: loot.admin
+permissions:
+  loot.admin:
+    description: Allows access to LootManager administration commands.
+    default: op
+  loot.table:
+    description: Allows loot table management commands.
+    default: op
+  loot.edit:
+    description: Allows GUI loot editing.
+    default: op
+  loot.fill:
+    description: Allows world and selection scanning commands.
+    default: op
+  loot.refill:
+    description: Allows refill related commands.
+    default: op
+  loot.region:
+    description: Allows region management commands.
+    default: op
+  loot.wand:
+    description: Allows selection wand usage.
+    default: op
+  loot.stats:
+    description: Allows viewing plugin statistics.
+    default: op
+  loot.preview:
+    description: Allows loot preview commands.
+    default: op
+  loot.reload:
+    description: Allows config reloads.
+    default: op

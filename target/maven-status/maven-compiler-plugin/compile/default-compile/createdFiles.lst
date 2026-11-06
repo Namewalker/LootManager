@@ -1,0 +1,7 @@
+com/lootmanager/loot/LootTableRegistry.class
+com/lootmanager/region/LootRegion.class
+com/lootmanager/loot/LootTable.class
+com/lootmanager/command/LootCommandExecutor.class
+com/lootmanager/scan/ScanQueue.class
+com/lootmanager/LootManagerPlugin.class
+com/lootmanager/region/RegionManager.class

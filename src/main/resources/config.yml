@@ -1,0 +1,21 @@
+scan:
+  chunks-per-tick: 1
+  containers-per-tick: 50
+  scan-interval-ticks: 1
+  unload-after-scan: true
+
+regions:
+  default-regen-minutes: 60
+
+loot:
+  fill-empty-only: true
+  fill-partially-empty: false
+
+refill:
+  enabled: true
+  refill-only-generated: true
+  require-empty-chest: true
+  allow-partial-refills: false
+
+tables: {}
+regions-config: {}

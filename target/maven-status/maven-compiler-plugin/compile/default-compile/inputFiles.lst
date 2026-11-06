@@ -1,0 +1,7 @@
+/workspaces/LootManager/src/main/java/com/lootmanager/command/LootCommandExecutor.java
+/workspaces/LootManager/src/main/java/com/lootmanager/scan/ScanQueue.java
+/workspaces/LootManager/src/main/java/com/lootmanager/loot/LootTable.java
+/workspaces/LootManager/src/main/java/com/lootmanager/region/RegionManager.java
+/workspaces/LootManager/src/main/java/com/lootmanager/LootManagerPlugin.java
+/workspaces/LootManager/src/main/java/com/lootmanager/loot/LootTableRegistry.java
+/workspaces/LootManager/src/main/java/com/lootmanager/region/LootRegion.java
