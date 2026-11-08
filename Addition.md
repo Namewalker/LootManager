@@ -68,6 +68,8 @@ COMMANDS
 
 ==================================================
 
-notes: this will change /loot fillworld to require /loot registry rebuild
-to have been ran beforehand. generating loot in a region will also require
-the rebuild to have been ran beforehand.
+notes: the registry is intentionally cached once per world. After a world is
+built once with /loot registry rebuild <world>, fill operations and region
+refills can use that cached registry without repeating the rebuild. A rebuild
+is only needed again when the cache is explicitly cleared or the world state
+has changed and an admin decides to refresh it.

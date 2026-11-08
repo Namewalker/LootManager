@@ -7,6 +7,7 @@ com/lootmanager/LootManagerPlugin$1.class
 com/lootmanager/loot/LootTable.class
 com/lootmanager/scan/ScanManager.class
 com/lootmanager/data/GeneratedContainerStore.class
+com/lootmanager/data/ContainerRegistryListener.class
 com/lootmanager/scan/ScanQueue$ChunkPosition.class
 com/lootmanager/loot/LootTableRegistry.class
 com/lootmanager/command/LootCommandExecutor.class
@@ -18,6 +19,7 @@ com/lootmanager/LootManagerPlugin.class
 com/lootmanager/command/LootTabCompleter.class
 com/lootmanager/loot/LootGenerator.class
 com/lootmanager/region/SelectionListener.class
+com/lootmanager/data/ContainerRegistry.class
 com/lootmanager/command/LootCommandExecutor$1.class
 com/lootmanager/scan/ScanQueue.class
 com/lootmanager/command/LootCommandExecutor$ChunkBounds.class

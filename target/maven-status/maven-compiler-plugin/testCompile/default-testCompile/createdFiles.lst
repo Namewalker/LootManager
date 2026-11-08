@@ -3,5 +3,6 @@ com/lootmanager/loot/LootTableTest.class
 com/lootmanager/loot/LootGeneratorTest.class
 com/lootmanager/ResourceDefaultsTest.class
 com/lootmanager/region/RegionManagerTest.class
+com/lootmanager/data/ContainerRegistryTest.class
 com/lootmanager/loot/LootTableRegistryTest.class
 com/lootmanager/scan/ScanQueueTest.class

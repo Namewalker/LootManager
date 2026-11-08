@@ -24,7 +24,7 @@ class ResourceDefaultsTest {
         assertNotNull(getClass().getResource("/messages.yml"));
 
         YamlConfiguration descriptor = readYaml("/plugin.yml");
-        assertEquals("1.0.1", descriptor.getString("version"));
+        assertEquals("1.1.0", descriptor.getString("version"));
         assertEquals("com.lootmanager.LootManagerPlugin", descriptor.getString("main"));
     }
 

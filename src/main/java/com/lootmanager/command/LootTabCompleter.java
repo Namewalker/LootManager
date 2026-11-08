@@ -25,7 +25,7 @@ public class LootTabCompleter implements TabCompleter {
         List<String> candidates = new ArrayList<String>();
         if (args.length == 1) {
             candidates.addAll(Arrays.asList("table", "edit", "preview", "fillworld", "fill", "fillselection",
-                    "region", "refill", "wand", "pos1", "pos2", "clearselection", "showselection",
+                    "region", "registry", "refill", "wand", "pos1", "pos2", "clearselection", "showselection",
                     "info", "progress", "pause", "resume", "cancel", "stats", "reload", "help"));
         } else if ("table".equalsIgnoreCase(args[0])) {
             if (args.length == 2) {
@@ -50,6 +50,12 @@ public class LootTabCompleter implements TabCompleter {
                 candidates.addAll(worldNames());
             } else if (args.length == 3) {
                 candidates.addAll(plugin.getTableRegistry().listTables());
+            }
+        } else if ("registry".equalsIgnoreCase(args[0])) {
+            if (args.length == 2) {
+                candidates.addAll(Arrays.asList("rebuild", "stats", "validate"));
+            } else if (args.length == 3 && "rebuild".equalsIgnoreCase(args[1])) {
+                candidates.addAll(worldNames());
             }
         } else if ("fill".equalsIgnoreCase(args[0])) {
             if (args.length == 2) {

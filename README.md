@@ -1,6 +1,6 @@
 # LootManager
 
-Current implementation version: 1.0.1
+Current implementation version: 1.1.0
 
 PLUGIN NAME:
 LootManager

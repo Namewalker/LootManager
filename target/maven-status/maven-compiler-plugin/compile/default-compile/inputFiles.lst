@@ -3,6 +3,7 @@
 /workspaces/LootManager/src/main/java/com/lootmanager/scan/ScanQueue.java
 /workspaces/LootManager/src/main/java/com/lootmanager/region/RegionManager.java
 /workspaces/LootManager/src/main/java/com/lootmanager/loot/LootTableRegistry.java
+/workspaces/LootManager/src/main/java/com/lootmanager/data/ContainerRegistryListener.java
 /workspaces/LootManager/src/main/java/com/lootmanager/loot/LootGenerator.java
 /workspaces/LootManager/src/main/java/com/lootmanager/data/GeneratedContainerListener.java
 /workspaces/LootManager/src/main/java/com/lootmanager/region/SelectionManager.java
@@ -10,6 +11,7 @@
 /workspaces/LootManager/src/main/java/com/lootmanager/scan/ScanManager.java
 /workspaces/LootManager/src/main/java/com/lootmanager/region/SelectionListener.java
 /workspaces/LootManager/src/main/java/com/lootmanager/loot/LootTable.java
+/workspaces/LootManager/src/main/java/com/lootmanager/data/ContainerRegistry.java
 /workspaces/LootManager/src/main/java/com/lootmanager/LootManagerPlugin.java
 /workspaces/LootManager/src/main/java/com/lootmanager/region/LootRegion.java
 /workspaces/LootManager/src/main/java/com/lootmanager/command/LootTabCompleter.java

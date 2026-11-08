@@ -2,6 +2,8 @@ package com.lootmanager;
 
 import com.lootmanager.command.LootCommandExecutor;
 import com.lootmanager.command.LootTabCompleter;
+import com.lootmanager.data.ContainerRegistry;
+import com.lootmanager.data.ContainerRegistryListener;
 import com.lootmanager.data.GeneratedContainerStore;
 import com.lootmanager.data.GeneratedContainerListener;
 import com.lootmanager.editor.LootEditor;
@@ -26,14 +28,17 @@ public final class LootManagerPlugin extends JavaPlugin {
     private ScanQueue scanQueue;
     private ScanManager scanManager;
     private SelectionManager selectionManager;
+    private ContainerRegistry containerRegistry;
     private GeneratedContainerStore generatedContainerStore;
     private LootEditor lootEditor;
     private File lootFile;
     private File regionsFile;
+    private File containerFile;
     private File dataFile;
     private File messagesFile;
     private YamlConfiguration lootConfig;
     private YamlConfiguration regionsConfig;
+    private YamlConfiguration containerConfig;
     private YamlConfiguration dataConfig;
 
     @Override
@@ -41,14 +46,17 @@ public final class LootManagerPlugin extends JavaPlugin {
         saveDefaultConfig();
         lootFile = new File(getDataFolder(), "loot.yml");
         regionsFile = new File(getDataFolder(), "regions.yml");
+        containerFile = new File(getDataFolder(), "containers.yml");
         dataFile = new File(getDataFolder(), "data.yml");
         messagesFile = new File(getDataFolder(), "messages.yml");
         createYamlFile(lootFile);
         createYamlFile(regionsFile);
+        createYamlFile(containerFile);
         createYamlFile(dataFile);
         createYamlFile(messagesFile);
         lootConfig = YamlConfiguration.loadConfiguration(lootFile);
         regionsConfig = YamlConfiguration.loadConfiguration(regionsFile);
+        containerConfig = YamlConfiguration.loadConfiguration(containerFile);
         dataConfig = YamlConfiguration.loadConfiguration(dataFile);
 
         tableRegistry = new LootTableRegistry();
@@ -62,6 +70,8 @@ public final class LootManagerPlugin extends JavaPlugin {
         regionManager = new RegionManager();
         regionManager.loadFromConfig(regionsConfig);
 
+        containerRegistry = new ContainerRegistry(containerConfig);
+
         scanQueue = new ScanQueue();
         selectionManager = new SelectionManager();
         generatedContainerStore = new GeneratedContainerStore(dataConfig);
@@ -70,6 +80,7 @@ public final class LootManagerPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new SelectionListener(this, selectionManager), this);
         getServer().getPluginManager().registerEvents(lootEditor, this);
+        getServer().getPluginManager().registerEvents(new ContainerRegistryListener(this, containerRegistry), this);
         getServer().getPluginManager().registerEvents(new GeneratedContainerListener(this, generatedContainerStore), this);
 
         if (getCommand("loot") != null) {
@@ -96,6 +107,10 @@ public final class LootManagerPlugin extends JavaPlugin {
         if (regionManager != null) {
             regionManager.saveToConfig(regionsConfig);
             saveYaml(regionsConfig, regionsFile);
+        }
+        if (containerRegistry != null) {
+            containerRegistry.saveToConfig(containerConfig);
+            saveYaml(containerConfig, containerFile);
         }
         if (scanManager != null) {
             scanManager.stop();
@@ -125,6 +140,10 @@ public final class LootManagerPlugin extends JavaPlugin {
 
     public SelectionManager getSelectionManager() {
         return selectionManager;
+    }
+
+    public ContainerRegistry getContainerRegistry() {
+        return containerRegistry;
     }
 
     public GeneratedContainerStore getGeneratedContainerStore() {
@@ -165,25 +184,34 @@ public final class LootManagerPlugin extends JavaPlugin {
         saveYaml(dataConfig, dataFile);
     }
 
+    public void saveContainerData() {
+        containerRegistry.saveToConfig(containerConfig);
+        saveYaml(containerConfig, containerFile);
+    }
+
     public void reloadPluginData() {
         reloadConfig();
         YamlConfiguration newLootConfig = YamlConfiguration.loadConfiguration(lootFile);
         YamlConfiguration newRegionsConfig = YamlConfiguration.loadConfiguration(regionsFile);
+        YamlConfiguration newContainerConfig = YamlConfiguration.loadConfiguration(containerFile);
         YamlConfiguration newDataConfig = YamlConfiguration.loadConfiguration(dataFile);
         LootTableRegistry newTableRegistry = new LootTableRegistry();
         newTableRegistry.loadFromConfig(newLootConfig);
         newTableRegistry.validateTables();
         RegionManager newRegionManager = new RegionManager();
         newRegionManager.loadFromConfig(newRegionsConfig);
+        ContainerRegistry newContainerRegistry = new ContainerRegistry(newContainerConfig);
 
         if (scanManager != null) {
             scanManager.stop();
         }
         lootConfig = newLootConfig;
         regionsConfig = newRegionsConfig;
+        containerConfig = newContainerConfig;
         dataConfig = newDataConfig;
         tableRegistry = newTableRegistry;
         regionManager = newRegionManager;
+        containerRegistry = newContainerRegistry;
         generatedContainerStore.reload(dataConfig);
     }
 

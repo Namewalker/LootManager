@@ -10,10 +10,14 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Chest;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -42,6 +46,9 @@ public class LootCommandExecutor implements CommandExecutor {
         }
         if ("region".equals(action)) {
             return handleRegion(sender, args);
+        }
+        if ("registry".equals(action)) {
+            return handleRegistry(sender, args);
         }
         if ("wand".equals(action)) {
             return giveWand(sender);
@@ -228,6 +235,53 @@ public class LootCommandExecutor implements CommandExecutor {
         return true;
     }
 
+    private boolean handleRegistry(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("loot.fill")) {
+            return noPermission(sender);
+        }
+        if (args.length < 2) {
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /loot registry <rebuild|stats|validate> [world]");
+            return true;
+        }
+        String sub = args[1].toLowerCase(Locale.ROOT);
+        try {
+            if ("rebuild".equals(sub) && args.length == 3) {
+                World world = Bukkit.getWorld(args[2]);
+                if (world == null) {
+                    sender.sendMessage(ChatColor.RED + "World is not loaded: " + args[2]);
+                    return true;
+                }
+                int count = rebuildContainerRegistry(world);
+                sender.sendMessage(ChatColor.GREEN + "Rebuilt container registry for " + world.getName() + ". Found " + count + " tracked containers.");
+            } else if ("stats".equals(sub) && args.length == 2) {
+                int total = 0;
+                for (World world : Bukkit.getWorlds()) {
+                    total += plugin.getContainerRegistry().getContainerCount(world.getName());
+                }
+                sender.sendMessage(ChatColor.GOLD + "Container Registry Stats: " + ChatColor.YELLOW
+                        + "worlds tracked=" + countBuiltWorlds() + ", total containers=" + total);
+            } else if ("validate".equals(sub) && args.length == 2) {
+                List<String> missing = new ArrayList<String>();
+                for (World world : Bukkit.getWorlds()) {
+                    if (!plugin.getContainerRegistry().isWorldBuilt(world.getName())) {
+                        missing.add(world.getName());
+                    }
+                }
+                if (missing.isEmpty()) {
+                    sender.sendMessage(ChatColor.GREEN + "All loaded worlds have a valid container registry cache.");
+                } else {
+                    sender.sendMessage(ChatColor.YELLOW + "Registry cache missing for: " + String.join(", ", missing)
+                            + ". Run /loot registry rebuild <world> once to build the per-world cache.");
+                }
+            } else {
+                sender.sendMessage(ChatColor.YELLOW + "Usage: /loot registry <rebuild|stats|validate> [world]");
+            }
+        } catch (IllegalArgumentException exception) {
+            sender.sendMessage(ChatColor.RED + exception.getMessage());
+        }
+        return true;
+    }
+
     private boolean handleRegion(CommandSender sender, String[] args) {
         if (!sender.hasPermission("loot.region")) {
             return noPermission(sender);
@@ -391,6 +445,10 @@ public class LootCommandExecutor implements CommandExecutor {
         int maxX = Math.max(x1, x2);
         int minZ = Math.min(z1, z2);
         int maxZ = Math.max(z1, z2);
+        if (!plugin.getContainerRegistry().isWorldBuilt(world.getName())) {
+            sender.sendMessage(ChatColor.RED + "Container registry for world " + world.getName() + " is not built. Run /loot registry rebuild " + world.getName() + " once to build the world cache.");
+            return;
+        }
         try {
             if (!plugin.getScanManager().start(world, table, minX, maxX, minZ, maxZ, loadedOnly, region)) {
                 sender.sendMessage(ChatColor.RED + "Another scan is already active. Use /loot progress, /loot pause, or /loot cancel.");
@@ -583,6 +641,50 @@ public class LootCommandExecutor implements CommandExecutor {
         return count;
     }
 
+    private int rebuildContainerRegistry(World world) {
+        plugin.getContainerRegistry().clearWorld(world.getName());
+        int count = 0;
+        for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+            for (BlockState state : chunk.getTileEntities()) {
+                if (!(state instanceof InventoryHolder)) {
+                    continue;
+                }
+                if (!isTrackedContainer(state)) {
+                    continue;
+                }
+                Block block = state.getBlock();
+                if (block == null) {
+                    continue;
+                }
+                plugin.getContainerRegistry().addContainer(world.getName(), block.getX(), block.getY(), block.getZ(), block.getType().name());
+                count++;
+            }
+        }
+        plugin.getContainerRegistry().markWorldBuilt(world.getName(), true);
+        plugin.saveContainerData();
+        return count;
+    }
+
+    private int countBuiltWorlds() {
+        int count = 0;
+        for (World world : Bukkit.getWorlds()) {
+            if (plugin.getContainerRegistry().isWorldBuilt(world.getName())) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean isTrackedContainer(BlockState state) {
+        if (state instanceof Chest) {
+            return true;
+        }
+        if (state instanceof ShulkerBox) {
+            return plugin.getConfig().getBoolean("containers.shulker-boxes", false);
+        }
+        return state instanceof InventoryHolder && plugin.getConfig().getBoolean("containers.any-inventory-holder", false);
+    }
+
     private String format(Location location) {
         return location == null ? "unset" : location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ();
     }
@@ -598,11 +700,12 @@ public class LootCommandExecutor implements CommandExecutor {
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.GOLD + "LootManager 1.0.1 commands:");
+        sender.sendMessage(ChatColor.GOLD + "LootManager 1.1.0 commands:");
         sender.sendMessage(ChatColor.YELLOW + "/loot table <create|delete|rename|list|info|inherit|clearinheritance|clear> ...");
         sender.sendMessage(ChatColor.YELLOW + "/loot edit|preview <table> | /loot fillworld <world> <table>");
         sender.sendMessage(ChatColor.YELLOW + "/loot fill loaded <world> <table> | /loot fillselection <table>");
         sender.sendMessage(ChatColor.YELLOW + "/loot region <create|remove|list|info|enable|disable|settable|settime> ...");
+        sender.sendMessage(ChatColor.YELLOW + "/loot registry <rebuild|stats|validate> [world]");
         sender.sendMessage(ChatColor.YELLOW + "/loot wand|pos1|pos2|clearselection|showselection|info");
         sender.sendMessage(ChatColor.YELLOW + "/loot progress|pause|resume|cancel|refill|stats|reload");
     }

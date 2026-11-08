@@ -1,6 +1,7 @@
 /workspaces/LootManager/src/test/java/com/lootmanager/ResourceDefaultsTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/loot/LootGeneratorTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/region/RegionManagerTest.java
+/workspaces/LootManager/src/test/java/com/lootmanager/data/ContainerRegistryTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/data/GeneratedContainerStoreTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/loot/LootTableRegistryTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/loot/LootTableTest.java
