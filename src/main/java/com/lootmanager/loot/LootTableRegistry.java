@@ -14,11 +14,11 @@ public class LootTableRegistry {
     private final Map<String, LootTable> tables = new LinkedHashMap<String, LootTable>();
 
     public LootTable createTable(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Table name cannot be empty.");
+        if (name == null || !name.matches("[A-Za-z0-9_-]+")) {
+            throw new IllegalArgumentException("Table name must contain only letters, numbers, underscores, or hyphens.");
         }
         if (tables.containsKey(name)) {
-            return tables.get(name);
+            throw new IllegalArgumentException("Loot table already exists: " + name);
         }
         LootTable table = new LootTable(name);
         tables.put(name, table);
@@ -26,6 +26,14 @@ public class LootTableRegistry {
     }
 
     public void deleteTable(String name) {
+        if (!tables.containsKey(name)) {
+            throw new IllegalArgumentException("Table does not exist: " + name);
+        }
+        for (LootTable table : tables.values()) {
+            if (name.equals(table.getParentName())) {
+                throw new IllegalStateException("Table is inherited by '" + table.getName() + "'. Clear that inheritance first.");
+            }
+        }
         tables.remove(name);
     }
 
@@ -33,8 +41,24 @@ public class LootTableRegistry {
         if (!tables.containsKey(oldName)) {
             throw new IllegalArgumentException("Table does not exist: " + oldName);
         }
+        if (newName == null || !newName.matches("[A-Za-z0-9_-]+") || tables.containsKey(newName)) {
+            throw new IllegalArgumentException("New table name is invalid or already exists: " + newName);
+        }
         LootTable table = tables.remove(oldName);
-        tables.put(newName, table);
+        tables.put(newName, new LootTable(newName));
+        LootTable renamed = tables.get(newName);
+        renamed.setParentName(table.getParentName());
+        renamed.setMinRolls(table.getMinRolls());
+        renamed.setMaxRolls(table.getMaxRolls());
+        renamed.setLastEdited(table.getLastEdited());
+        for (Map.Entry<String, Map<String, Object>> item : table.getItems().entrySet()) {
+            renamed.addItem(item.getKey(), item.getValue());
+        }
+        for (LootTable candidate : tables.values()) {
+            if (oldName.equals(candidate.getParentName())) {
+                candidate.setParentName(newName);
+            }
+        }
     }
 
     public LootTable getTable(String name) {
@@ -56,6 +80,7 @@ public class LootTableRegistry {
     }
 
     public void loadFromConfig(FileConfiguration config) {
+        tables.clear();
         ConfigurationSection tablesSection = config.getConfigurationSection("tables");
         if (tablesSection == null) {
             return;
@@ -76,6 +101,7 @@ public class LootTableRegistry {
             if (tableSection.contains("settings.max-rolls")) {
                 table.setMaxRolls(tableSection.getInt("settings.max-rolls"));
             }
+            table.setLastEdited(tableSection.getLong("last-edited", System.currentTimeMillis()));
 
             ConfigurationSection itemsSection = tableSection.getConfigurationSection("items");
             if (itemsSection != null) {
@@ -97,10 +123,23 @@ public class LootTableRegistry {
             config.set("tables." + tableName + ".inherits", table.getParentName());
             config.set("tables." + tableName + ".settings.min-rolls", table.getMinRolls());
             config.set("tables." + tableName + ".settings.max-rolls", table.getMaxRolls());
+            config.set("tables." + tableName + ".last-edited", table.getLastEdited());
 
             Map<String, Map<String, Object>> items = table.getItems();
             for (Map.Entry<String, Map<String, Object>> itemEntry : items.entrySet()) {
-                config.set("tables." + tableName + ".items." + itemEntry.getKey(), itemEntry.getValue());
+                writeSection(config, "tables." + tableName + ".items." + itemEntry.getKey(), itemEntry.getValue());
+            }
+        }
+    }
+
+    private void writeSection(FileConfiguration config, String path, Map<?, ?> values) {
+        for (Map.Entry<?, ?> entry : values.entrySet()) {
+            String childPath = path + "." + entry.getKey();
+            Object value = entry.getValue();
+            if (value instanceof Map) {
+                writeSection(config, childPath, (Map<?, ?>) value);
+            } else {
+                config.set(childPath, value);
             }
         }
     }

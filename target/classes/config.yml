@@ -3,6 +3,7 @@ scan:
   containers-per-tick: 50
   scan-interval-ticks: 1
   unload-after-scan: true
+  max-world-chunks: 100000
 
 regions:
   default-regen-minutes: 60
@@ -17,5 +18,9 @@ refill:
   require-empty-chest: true
   allow-partial-refills: false
 
-tables: {}
-regions-config: {}
+wand:
+  material: GOLD_HOE
+  name: '&6Loot Selection Wand'
+containers:
+  shulker-boxes: false
+  any-inventory-holder: false

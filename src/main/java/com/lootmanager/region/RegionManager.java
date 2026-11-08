@@ -14,19 +14,29 @@ public class RegionManager {
     private final Map<String, LootRegion> regions = new LinkedHashMap<String, LootRegion>();
 
     public LootRegion createRegion(String name, String worldName, String tableName, int regenerationMinutes) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Region name cannot be empty.");
+        if (name == null || !name.matches("[A-Za-z0-9_-]+")) {
+            throw new IllegalArgumentException("Region name must contain only letters, numbers, underscores, or hyphens.");
+        }
+        if (regions.containsKey(name)) {
+            throw new IllegalArgumentException("Region already exists: " + name);
         }
         LootRegion region = new LootRegion(name);
         region.setWorldName(worldName);
         region.setTableName(tableName);
         region.setRegenerationMinutes(regenerationMinutes);
+        region.setLastRefill(System.currentTimeMillis());
         regions.put(name, region);
         return region;
     }
 
     public LootRegion getRegion(String name) {
         return regions.get(name);
+    }
+
+    public void removeRegion(String name) {
+        if (regions.remove(name) == null) {
+            throw new IllegalArgumentException("Unknown region: " + name);
+        }
     }
 
     public List<String> listRegions() {
@@ -63,8 +73,13 @@ public class RegionManager {
         }
     }
 
+    public List<LootRegion> getRegions() {
+        return new ArrayList<LootRegion>(regions.values());
+    }
+
     public void loadFromConfig(FileConfiguration config) {
-        ConfigurationSection section = config.getConfigurationSection("regions-config");
+        regions.clear();
+        ConfigurationSection section = config.getConfigurationSection("regions");
         if (section == null) {
             return;
         }
@@ -84,24 +99,43 @@ public class RegionManager {
             region.setMaxX(regionSection.getInt("pos2.x", 0));
             region.setMaxY(regionSection.getInt("pos2.y", 0));
             region.setMaxZ(regionSection.getInt("pos2.z", 0));
+            region.setLastRefill(regionSection.getLong("last-refill", 0L));
             regions.put(regionName, region);
         }
     }
 
     public void saveToConfig(FileConfiguration config) {
-        config.set("regions-config", null);
+        config.set("regions", null);
         for (Map.Entry<String, LootRegion> entry : regions.entrySet()) {
             LootRegion region = entry.getValue();
-            config.set("regions-config." + entry.getKey() + ".world", region.getWorldName());
-            config.set("regions-config." + entry.getKey() + ".table", region.getTableName());
-            config.set("regions-config." + entry.getKey() + ".regen-minutes", region.getRegenerationMinutes());
-            config.set("regions-config." + entry.getKey() + ".enabled", region.isEnabled());
-            config.set("regions-config." + entry.getKey() + ".pos1.x", region.getMinX());
-            config.set("regions-config." + entry.getKey() + ".pos1.y", region.getMinY());
-            config.set("regions-config." + entry.getKey() + ".pos1.z", region.getMinZ());
-            config.set("regions-config." + entry.getKey() + ".pos2.x", region.getMaxX());
-            config.set("regions-config." + entry.getKey() + ".pos2.y", region.getMaxY());
-            config.set("regions-config." + entry.getKey() + ".pos2.z", region.getMaxZ());
+            config.set("regions." + entry.getKey() + ".world", region.getWorldName());
+            config.set("regions." + entry.getKey() + ".table", region.getTableName());
+            config.set("regions." + entry.getKey() + ".regen-minutes", region.getRegenerationMinutes());
+            config.set("regions." + entry.getKey() + ".enabled", region.isEnabled());
+            config.set("regions." + entry.getKey() + ".pos1.x", region.getMinX());
+            config.set("regions." + entry.getKey() + ".pos1.y", region.getMinY());
+            config.set("regions." + entry.getKey() + ".pos1.z", region.getMinZ());
+            config.set("regions." + entry.getKey() + ".pos2.x", region.getMaxX());
+            config.set("regions." + entry.getKey() + ".pos2.y", region.getMaxY());
+            config.set("regions." + entry.getKey() + ".pos2.z", region.getMaxZ());
+            config.set("regions." + entry.getKey() + ".last-refill", region.getLastRefill());
         }
+    }
+
+    public void renameTableReferences(String oldName, String newName) {
+        for (LootRegion region : regions.values()) {
+            if (oldName.equals(region.getTableName())) {
+                region.setTableName(newName);
+            }
+        }
+    }
+
+    public boolean usesTable(String tableName) {
+        for (LootRegion region : regions.values()) {
+            if (tableName.equals(region.getTableName())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

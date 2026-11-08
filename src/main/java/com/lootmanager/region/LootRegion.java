@@ -15,6 +15,7 @@ public class LootRegion {
     private int maxX;
     private int maxY;
     private int maxZ;
+    private long lastRefill;
 
     public LootRegion(String name) {
         this.name = name;
@@ -102,6 +103,27 @@ public class LootRegion {
 
     public void setMaxZ(int maxZ) {
         this.maxZ = maxZ;
+    }
+
+    public long getLastRefill() {
+        return lastRefill;
+    }
+
+    public void setLastRefill(long lastRefill) {
+        this.lastRefill = Math.max(0L, lastRefill);
+    }
+
+    public void setBounds(int x1, int y1, int z1, int x2, int y2, int z2) {
+        minX = Math.min(x1, x2);
+        minY = Math.min(y1, y2);
+        minZ = Math.min(z1, z2);
+        maxX = Math.max(x1, x2);
+        maxY = Math.max(y1, y2);
+        maxZ = Math.max(z1, z2);
+    }
+
+    public boolean hasBounds() {
+        return worldName != null;
     }
 
     @Override

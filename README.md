@@ -1,5 +1,7 @@
 # LootManager
 
+Current implementation version: 1.0.1
+
 PLUGIN NAME:
 LootManager
 
@@ -798,6 +800,8 @@ scan:
 
   scan-interval-ticks: 1
 
+  max-world-chunks: 100000
+
 ==================================================
 WORLD SCANNING
 ==================================================
@@ -851,6 +855,11 @@ scan:
 Plugin loads chunks gradually.
 
 Unloads chunks after processing.
+
+World scans use the explicitly named world's world-border bounds. The
+max-world-chunks limit prevents an accidental scan from loading an
+unbounded number of chunks. Reduce the world border or deliberately raise
+this limit to scan a larger area. A value of 0 disables the limit.
 
 ==================================================
 SCAN PROGRESS
@@ -954,6 +963,8 @@ scan:
   scan-interval-ticks: 1
 
   unload-after-scan: true
+
+  max-world-chunks: 100000
 
 regions:
 

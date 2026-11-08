@@ -1,0 +1,4 @@
+prefix: '&6[LootManager] &r'
+no-permission: '&cYou do not have permission to do that.'
+unknown-table: '&cUnknown loot table: {table}'
+unknown-region: '&cUnknown region: {region}'
