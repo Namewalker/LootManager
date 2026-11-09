@@ -5,6 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -20,23 +21,25 @@ public class ContainerRegistryListener implements Listener {
         this.registry = registry;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         Block block = event.getBlockPlaced();
-        if (!isTrackedContainer(block)) {
+        String world = block.getWorld().getName();
+        if (!registry.isWorldBuilt(world) || !isTrackedContainer(block)) {
             return;
         }
-        registry.addContainer(block.getWorld().getName(), block.getX(), block.getY(), block.getZ(), block.getType().name());
+        registry.addContainer(world, block.getX(), block.getY(), block.getZ(), block.getType().name());
         plugin.saveContainerData();
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
-        if (!isTrackedContainer(block)) {
+        String world = block.getWorld().getName();
+        if (!registry.isWorldBuilt(world) || !isTrackedContainer(block)) {
             return;
         }
-        registry.removeContainer(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+        registry.removeContainer(world, block.getX(), block.getY(), block.getZ());
         plugin.saveContainerData();
     }
 

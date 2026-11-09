@@ -3,7 +3,6 @@ scan:
   containers-per-tick: 50
   scan-interval-ticks: 1
   unload-after-scan: true
-  max-world-chunks: 100000
 
 regions:
   default-regen-minutes: 60

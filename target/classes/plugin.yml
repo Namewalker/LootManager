@@ -1,5 +1,5 @@
 name: LootManager
-version: 1.1.0
+version: 1.1.1
 main: com.lootmanager.LootManagerPlugin
 description: Comprehensive loot generation, table management, and world-region scanning plugin.
 commands:

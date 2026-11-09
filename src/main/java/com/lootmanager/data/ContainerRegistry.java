@@ -59,7 +59,6 @@ public class ContainerRegistry {
         containerSection.set(nextKey + ".y", y);
         containerSection.set(nextKey + ".z", z);
         containerSection.set(nextKey + ".type", type == null ? "UNKNOWN" : type);
-        config.set("worlds." + encodedWorld + ".built", true);
     }
 
     public void removeContainer(String world, int x, int y, int z) {
@@ -79,10 +78,8 @@ public class ContainerRegistry {
             }
         }
         if (containerSection.getKeys(false).isEmpty()) {
-            config.set("worlds." + encodedWorld, null);
-            return;
+            worldSection.set("containers", null);
         }
-        config.set("worlds." + encodedWorld + ".built", true);
     }
 
     public boolean contains(String world, int x, int y, int z) {

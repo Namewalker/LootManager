@@ -1,6 +1,6 @@
 # LootManager
 
-Current implementation version: 1.1.0
+Current implementation version: 1.1.1
 
 PLUGIN NAME:
 LootManager
@@ -751,30 +751,13 @@ Plugin must NEVER scan entire worlds instantly.
 All operations use queues.
 
 ==================================================
-CHUNK QUEUE
+REGISTRY-BASED FILLING
 ==================================================
 
-Stores:
-
-World Name
-
-Chunk X
-
-Chunk Z
-
-Only.
-
-Never store Chunk objects.
-
-==================================================
-SCAN PROCESS
-==================================================
-
-1. Collect chunks
-2. Add chunks to queue
-3. Process gradually
-4. Queue containers
-5. Process containers
+Fill and region-refill jobs read container coordinates from the per-world
+registry. They do not scan chunk tile entities or walk every chunk in the
+world again. Only chunks containing registered containers are loaded, within
+the configured per-tick chunk budget.
 
 ==================================================
 CONTAINER QUEUE
@@ -800,8 +783,6 @@ scan:
 
   scan-interval-ticks: 1
 
-  max-world-chunks: 100000
-
 ==================================================
 WORLD SCANNING
 ==================================================
@@ -826,7 +807,8 @@ Example:
 
 /loot fill loaded Amberlight dungeon
 
-Only scans already loaded chunks.
+Only processes registered containers in already-loaded chunks and does not
+load additional chunks.
 
 ==================================================
 SELECTION SCANNING
@@ -852,14 +834,14 @@ scan:
 
   unload-after-scan: true
 
-Plugin loads chunks gradually.
+Registry-based fills load only chunks containing registered containers,
+gradually.
 
-Unloads chunks after processing.
+Unloads newly loaded chunks after their queued containers are processed.
 
-World scans use the explicitly named world's world-border bounds. The
-max-world-chunks limit prevents an accidental scan from loading an
-unbounded number of chunks. Reduce the world border or deliberately raise
-this limit to scan a larger area. A value of 0 disables the limit.
+World fills use the explicitly named world's world-border bounds to select
+registered containers. A registry must be built once for the world and is
+then kept current by container block-place and block-break events.
 
 ==================================================
 SCAN PROGRESS
@@ -877,9 +859,6 @@ Loot Scan Progress
 
 World:
 Amberlight
-
-Chunks:
-145 / 500
 
 Containers:
 840 / 2943
@@ -963,8 +942,6 @@ scan:
   scan-interval-ticks: 1
 
   unload-after-scan: true
-
-  max-world-chunks: 100000
 
 regions:
 
@@ -1114,7 +1091,7 @@ IMPLEMENTATION REQUIREMENTS
 - Smart refill system
 - Random slot generation
 - Double chest support
-- Chunk queue scanning
+- Registry-driven container queues
 - Region regeneration system
 - TPS-first design philosophy
 

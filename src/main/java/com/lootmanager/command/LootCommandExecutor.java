@@ -700,7 +700,7 @@ public class LootCommandExecutor implements CommandExecutor {
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.GOLD + "LootManager 1.1.0 commands:");
+        sender.sendMessage(ChatColor.GOLD + "LootManager 1.1.1 commands:");
         sender.sendMessage(ChatColor.YELLOW + "/loot table <create|delete|rename|list|info|inherit|clearinheritance|clear> ...");
         sender.sendMessage(ChatColor.YELLOW + "/loot edit|preview <table> | /loot fillworld <world> <table>");
         sender.sendMessage(ChatColor.YELLOW + "/loot fill loaded <world> <table> | /loot fillselection <table>");

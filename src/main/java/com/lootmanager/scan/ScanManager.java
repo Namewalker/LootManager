@@ -6,7 +6,6 @@ import com.lootmanager.loot.LootGenerator;
 import com.lootmanager.loot.LootTable;
 import com.lootmanager.region.LootRegion;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -23,9 +22,11 @@ import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 public class ScanManager {
 
@@ -71,33 +72,36 @@ public class ScanManager {
         } catch (IllegalStateException exception) {
             throw new IllegalArgumentException(exception.getMessage());
         }
-
-        long chunkCount = ((long) maxChunkX - minChunkX + 1L) * ((long) maxChunkZ - minChunkZ + 1L);
-        long maxChunks = plugin.getConfig().getLong("scan.max-world-chunks", 100000L);
-        if (!loadedOnly && maxChunks > 0L && chunkCount > maxChunks) {
-            throw new IllegalArgumentException("Scan covers " + chunkCount + " chunks, above scan.max-world-chunks (" + maxChunks + "). Reduce the area or raise that limit deliberately.");
+        if (!plugin.getContainerRegistry().isWorldBuilt(world.getName())) {
+            throw new IllegalArgumentException("Container registry for world " + world.getName()
+                    + " is not built. Run /loot registry rebuild " + world.getName() + " first.");
         }
 
         queue.clear();
         unloadDrainedChunks();
         activeJob = new ScanJob(world.getName(), tableName, loadedOnly, region);
-        if (loadedOnly) {
-            for (Chunk chunk : world.getLoadedChunks()) {
-                if (chunk.getX() >= minChunkX && chunk.getX() <= maxChunkX
-                        && chunk.getZ() >= minChunkZ && chunk.getZ() <= maxChunkZ) {
-                    queue.enqueueChunk(world.getName(), chunk.getX(), chunk.getZ());
-                }
+        for (Map<String, Object> container : plugin.getContainerRegistry().getContainers(world.getName())) {
+            Integer x = parseCoordinate(container.get("x"));
+            Integer y = parseCoordinate(container.get("y"));
+            Integer z = parseCoordinate(container.get("z"));
+            if (x == null || y == null || z == null
+                    || (x >> 4) < minChunkX || (x >> 4) > maxChunkX
+                    || (z >> 4) < minChunkZ || (z >> 4) > maxChunkZ) {
+                continue;
             }
-            activeJob.totalChunks = queue.getChunkQueueSize();
-        } else {
-            activeJob.minChunkX = minChunkX;
-            activeJob.maxChunkX = maxChunkX;
-            activeJob.minChunkZ = minChunkZ;
-            activeJob.maxChunkZ = maxChunkZ;
-            activeJob.totalChunks = chunkCount;
-            activeJob.cursorX = minChunkX;
-            activeJob.cursorZ = minChunkZ;
-            activeJob.hasCursor = chunkCount > 0L;
+            if (region != null && (x < region.getMinX() || x > region.getMaxX()
+                    || y < region.getMinY() || y > region.getMaxY()
+                    || z < region.getMinZ() || z > region.getMaxZ())) {
+                continue;
+            }
+            if (loadedOnly && !world.isChunkLoaded(x >> 4, z >> 4)) {
+                continue;
+            }
+            if (queue.enqueueContainer(world.getName(), x, y, z)) {
+                activeJob.totalContainers++;
+                activeJob.containersFound++;
+                containersFound++;
+            }
         }
 
         schedule();
@@ -150,11 +154,10 @@ public class ScanManager {
         if (activeJob == null) {
             return "No scan is active. Completed scans: " + scansCompleted + ".";
         }
-        return "World: " + activeJob.worldName + ", chunks: " + activeJob.chunksProcessed + "/" + activeJob.totalChunks
+        return "World: " + activeJob.worldName + ", containers: " + activeJob.containersProcessed + "/" + activeJob.totalContainers
                 + ", containers found: " + activeJob.containersFound + ", filled: " + activeJob.containersFilled
                 + ", skipped: " + activeJob.containersSkipped + ", queued: "
-                + (queue.getChunkQueueSize() + (activeJob.hasCursor ? 1 : 0)) + " chunks / "
-                + queue.getContainerQueueSize() + " containers" + (activeJob.paused ? " (paused)" : "");
+            + queue.getContainerQueueSize() + " containers" + (activeJob.paused ? " (paused)" : "");
     }
 
     public String getStatistics() {
@@ -210,31 +213,16 @@ public class ScanManager {
 
         int chunkBudget = Math.max(1, plugin.getConfig().getInt("scan.chunks-per-tick", 1));
         int containerBudget = Math.max(1, plugin.getConfig().getInt("scan.containers-per-tick", 50));
-        stageChunks(chunkBudget);
-        for (int i = 0; i < chunkBudget; i++) {
-            ScanQueue.ChunkPosition position = queue.pollChunk();
-            if (position == null) {
-                break;
-            }
-            World world = Bukkit.getWorld(position.world);
-            if (world == null) {
-                activeJob.chunksProcessed++;
-                continue;
-            }
-            boolean wasLoaded = world.isChunkLoaded(position.x, position.z);
-            Chunk chunk = world.getChunkAt(position.x, position.z);
-            scanChunk(chunk);
-            activeJob.chunksProcessed++;
-            if (!wasLoaded && plugin.getConfig().getBoolean("scan.unload-after-scan", true)) {
-                pendingUnload.add(position);
-            }
-        }
-
+        Set<String> chunksLoadedThisTick = new HashSet<String>();
         for (int i = 0; i < containerBudget; i++) {
             ScanQueue.BlockPosition position = queue.pollContainer();
             if (position == null) {
                 break;
             }
+            if (prepareContainerChunk(position, chunksLoadedThisTick, chunkBudget)) {
+                break;
+            }
+            activeJob.containersProcessed++;
             processContainer(position);
         }
         if (generatedDataDirty && System.currentTimeMillis() - lastGeneratedSaveAt >= 5000L) {
@@ -242,39 +230,40 @@ public class ScanManager {
         }
         unloadDrainedChunks();
 
-        stageChunks(chunkBudget);
-        if (!activeJob.hasCursor && queue.getChunkQueueSize() == 0 && queue.getContainerQueueSize() == 0) {
+        if (queue.getContainerQueueSize() == 0) {
             finish(true);
         }
     }
 
-    private void stageChunks(int budget) {
-        while (budget-- > 0 && activeJob != null && activeJob.hasCursor) {
-            queue.enqueueChunk(activeJob.worldName, activeJob.cursorX, activeJob.cursorZ);
-            if (activeJob.cursorX < activeJob.maxChunkX) {
-                activeJob.cursorX++;
-            } else if (activeJob.cursorZ < activeJob.maxChunkZ) {
-                activeJob.cursorX = activeJob.minChunkX;
-                activeJob.cursorZ++;
-            } else {
-                activeJob.hasCursor = false;
-            }
+    private boolean prepareContainerChunk(ScanQueue.BlockPosition position, Set<String> chunksLoadedThisTick, int chunkBudget) {
+        World world = Bukkit.getWorld(position.world);
+        if (world == null || world.isChunkLoaded(position.x >> 4, position.z >> 4) || activeJob.loadedOnly) {
+            return false;
         }
+        String chunkKey = position.world + ":" + (position.x >> 4) + ":" + (position.z >> 4);
+        if (!chunksLoadedThisTick.contains(chunkKey) && chunksLoadedThisTick.size() >= chunkBudget) {
+            queue.enqueueContainer(position.world, position.x, position.y, position.z);
+            return true;
+        }
+        world.getChunkAt(position.x >> 4, position.z >> 4);
+        chunksLoadedThisTick.add(chunkKey);
+        if (plugin.getConfig().getBoolean("scan.unload-after-scan", true)) {
+            pendingUnload.add(new ScanQueue.ChunkPosition(position.world, position.x >> 4, position.z >> 4));
+        }
+        return false;
     }
 
-    private void scanChunk(Chunk chunk) {
-        for (BlockState state : chunk.getTileEntities()) {
-            if (!(state instanceof InventoryHolder)) {
-                continue;
-            }
-            if (!isSupported(state)) {
-                continue;
-            }
-            Block block = state.getBlock();
-            if (queue.enqueueContainer(block.getWorld().getName(), block.getX(), block.getY(), block.getZ())) {
-                activeJob.containersFound++;
-                containersFound++;
-            }
+    private Integer parseCoordinate(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(String.valueOf(value));
+        } catch (NumberFormatException exception) {
+            return null;
         }
     }
 
@@ -473,18 +462,11 @@ public class ScanManager {
         private final String tableName;
         private final boolean loadedOnly;
         private final LootRegion region;
-        private long totalChunks;
-        private long chunksProcessed;
+        private long totalContainers;
+        private long containersProcessed;
         private long containersFound;
         private long containersFilled;
         private long containersSkipped;
-        private int minChunkX;
-        private int maxChunkX;
-        private int minChunkZ;
-        private int maxChunkZ;
-        private int cursorX;
-        private int cursorZ;
-        private boolean hasCursor;
         private boolean paused;
         private boolean cancelled;
         private final long startedAt = System.currentTimeMillis();

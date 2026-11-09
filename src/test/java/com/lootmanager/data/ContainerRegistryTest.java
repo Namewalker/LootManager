@@ -12,6 +12,7 @@ class ContainerRegistryTest {
         YamlConfiguration yaml = new YamlConfiguration();
         ContainerRegistry registry = new ContainerRegistry(yaml);
 
+        registry.markWorldBuilt("Amberlight", true);
         registry.addContainer("Amberlight", 100, 64, 200, "CHEST");
         registry.addContainer("Amberlight", 101, 64, 201, "TRAPPED_CHEST");
 
@@ -43,5 +44,26 @@ class ContainerRegistryTest {
         registry.saveToConfig(saved);
         assertTrue(saved.getBoolean("worlds.Nexus.built", false));
         assertEquals(1, registry.getContainerCount("Nexus"));
+    }
+
+    @Test
+    void addingContainerDoesNotMarkAnIncompleteWorldRegistryAsBuilt() {
+        ContainerRegistry registry = new ContainerRegistry(new YamlConfiguration());
+
+        registry.addContainer("Nexus", 5, 65, 7, "CHEST");
+
+        assertFalse(registry.isWorldBuilt("Nexus"));
+    }
+
+    @Test
+    void removingLastContainerPreservesBuiltRegistryState() {
+        ContainerRegistry registry = new ContainerRegistry(new YamlConfiguration());
+        registry.markWorldBuilt("Nexus", true);
+        registry.addContainer("Nexus", 5, 65, 7, "CHEST");
+
+        registry.removeContainer("Nexus", 5, 65, 7);
+
+        assertTrue(registry.isWorldBuilt("Nexus"));
+        assertEquals(0, registry.getContainerCount("Nexus"));
     }
 }
