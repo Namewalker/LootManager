@@ -6,12 +6,14 @@ com/lootmanager/scan/ScanQueue$BlockPosition.class
 com/lootmanager/LootManagerPlugin$1.class
 com/lootmanager/loot/LootTable.class
 com/lootmanager/scan/ScanManager.class
+com/lootmanager/scan/RegionChunkScanner.class
 com/lootmanager/data/GeneratedContainerStore.class
 com/lootmanager/data/ContainerRegistryListener.class
 com/lootmanager/scan/ScanQueue$ChunkPosition.class
 com/lootmanager/loot/LootTableRegistry.class
 com/lootmanager/command/LootCommandExecutor.class
 com/lootmanager/scan/ScanManager$ScanJob.class
+com/lootmanager/scan/ScanManager$RegistryRebuildJob.class
 com/lootmanager/scan/ScanManager$1.class
 com/lootmanager/region/SelectionManager$1.class
 com/lootmanager/data/GeneratedContainerListener.class
@@ -22,5 +24,6 @@ com/lootmanager/region/SelectionListener.class
 com/lootmanager/data/ContainerRegistry.class
 com/lootmanager/command/LootCommandExecutor$1.class
 com/lootmanager/scan/ScanQueue.class
+com/lootmanager/scan/RegionChunkScanner$ChunkCoordinate.class
 com/lootmanager/command/LootCommandExecutor$ChunkBounds.class
 com/lootmanager/region/RegionManager.class

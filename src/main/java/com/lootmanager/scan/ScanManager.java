@@ -8,10 +8,12 @@ import com.lootmanager.region.LootRegion;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.ShulkerBox;
+import org.bukkit.command.CommandSender;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -37,6 +39,7 @@ public class ScanManager {
     private final Random random = new Random();
     private final List<ScanQueue.ChunkPosition> pendingUnload = new ArrayList<ScanQueue.ChunkPosition>();
     private ScanJob activeJob;
+    private RegistryRebuildJob registryRebuildJob;
     private BukkitTask task;
     private long containersFound;
     private long containersFilled;
@@ -60,7 +63,7 @@ public class ScanManager {
         if (world == null) {
             throw new IllegalArgumentException("Target world is not loaded.");
         }
-        if (activeJob != null) {
+        if (isActive()) {
             return false;
         }
         LootTable table = plugin.getTableRegistry().getTable(tableName);
@@ -108,23 +111,76 @@ public class ScanManager {
         return true;
     }
 
+    public boolean startRegistryRebuild(World world, CommandSender sender) {
+        if (world == null) {
+            throw new IllegalArgumentException("Target world is not loaded.");
+        }
+        if (isActive()) {
+            return false;
+        }
+        WorldBorder border = world.getWorldBorder();
+        double halfSize = border.getSize() / 2.0D;
+        int minChunkX = ((int) Math.floor(border.getCenter().getX() - halfSize)) >> 4;
+        int maxChunkX = ((int) Math.floor(border.getCenter().getX() + halfSize)) >> 4;
+        int minChunkZ = ((int) Math.floor(border.getCenter().getZ() - halfSize)) >> 4;
+        int maxChunkZ = ((int) Math.floor(border.getCenter().getZ() + halfSize)) >> 4;
+
+        RegionChunkScanner scanner;
+        try {
+            scanner = new RegionChunkScanner(world.getWorldFolder(), minChunkX, maxChunkX, minChunkZ, maxChunkZ);
+        } catch (java.io.IOException exception) {
+            throw new IllegalArgumentException("Could not read saved region files for " + world.getName()
+                    + ": " + exception.getMessage());
+        }
+
+        Deque<ScanQueue.ChunkPosition> loadedChunks = new ArrayDeque<ScanQueue.ChunkPosition>();
+        Set<Long> loadedChunkKeys = new HashSet<Long>();
+        for (org.bukkit.Chunk chunk : world.getLoadedChunks()) {
+            if (chunk.getX() < minChunkX || chunk.getX() > maxChunkX
+                    || chunk.getZ() < minChunkZ || chunk.getZ() > maxChunkZ) {
+                continue;
+            }
+            loadedChunks.add(new ScanQueue.ChunkPosition(world.getName(), chunk.getX(), chunk.getZ()));
+            loadedChunkKeys.add(chunkKey(chunk.getX(), chunk.getZ()));
+        }
+
+        queue.clear();
+        plugin.getContainerRegistry().clearWorld(world.getName());
+        plugin.getContainerRegistry().markWorldBuilt(world.getName(), false);
+        plugin.saveContainerData();
+        registryRebuildJob = new RegistryRebuildJob(world.getName(), sender, scanner, loadedChunks, loadedChunkKeys);
+        schedule();
+        return true;
+    }
+
+    public boolean isRegistryRebuilding(String worldName) {
+        return registryRebuildJob != null && registryRebuildJob.worldName.equals(worldName);
+    }
+
     public boolean isActive() {
-        return activeJob != null;
+        return activeJob != null || registryRebuildJob != null;
     }
 
     public boolean isPaused() {
-        return activeJob != null && activeJob.paused;
+        return (activeJob != null && activeJob.paused)
+                || (registryRebuildJob != null && registryRebuildJob.paused);
     }
 
     public void pause() {
         if (activeJob != null) {
             activeJob.paused = true;
         }
+        if (registryRebuildJob != null) {
+            registryRebuildJob.paused = true;
+        }
     }
 
     public void resume() {
         if (activeJob != null) {
             activeJob.paused = false;
+        }
+        if (registryRebuildJob != null) {
+            registryRebuildJob.paused = false;
         }
     }
 
@@ -133,6 +189,9 @@ public class ScanManager {
         if (activeJob != null) {
             activeJob.cancelled = true;
             queue.clear();
+        }
+        if (registryRebuildJob != null) {
+            registryRebuildJob.cancelled = true;
         }
     }
 
@@ -144,13 +203,17 @@ public class ScanManager {
             }
         }
         int count = pendingRefills.size();
-        if (activeJob == null) {
+        if (!isActive()) {
             startNextRegionRefill();
         }
         return count;
     }
 
     public String getProgress() {
+        if (registryRebuildJob != null) {
+            return "Registry rebuild: world " + registryRebuildJob.worldName + ", existing chunks scanned: "
+                    + registryRebuildJob.chunksProcessed + (registryRebuildJob.paused ? " (paused)" : "");
+        }
         if (activeJob == null) {
             return "No scan is active. Completed scans: " + scansCompleted + ".";
         }
@@ -186,6 +249,12 @@ public class ScanManager {
         queue.clear();
         unloadDrainedChunks();
         activeJob = null;
+        if (registryRebuildJob != null) {
+            String rebuildingWorld = registryRebuildJob.worldName;
+            registryRebuildJob = null;
+            plugin.getContainerRegistry().markWorldBuilt(rebuildingWorld, false);
+            plugin.saveContainerData();
+        }
         saveGeneratedDataIfDirty();
     }
 
@@ -200,6 +269,10 @@ public class ScanManager {
     }
 
     private void processTick() {
+        if (registryRebuildJob != null) {
+            processRegistryRebuildTick();
+            return;
+        }
         if (activeJob == null) {
             return;
         }
@@ -232,6 +305,94 @@ public class ScanManager {
 
         if (queue.getContainerQueueSize() == 0) {
             finish(true);
+        }
+    }
+
+    private void processRegistryRebuildTick() {
+        RegistryRebuildJob job = registryRebuildJob;
+        if (job.cancelled) {
+            finishRegistryRebuild(false, "Registry rebuild cancelled. The world cache remains unbuilt.");
+            return;
+        }
+        if (job.paused) {
+            return;
+        }
+        World world = Bukkit.getWorld(job.worldName);
+        if (world == null) {
+            finishRegistryRebuild(false, "Registry rebuild stopped because the world is no longer loaded.");
+            return;
+        }
+
+        int chunkBudget = Math.max(1, plugin.getConfig().getInt("scan.chunks-per-tick", 1));
+        try {
+            for (int i = 0; i < chunkBudget; i++) {
+                ScanQueue.ChunkPosition position = nextRegistryChunk(job);
+                if (position == null) {
+                    finishRegistryRebuild(true, "Registry rebuild complete. Indexed "
+                            + plugin.getContainerRegistry().getContainerCount(job.worldName)
+                            + " tracked containers across " + job.chunksProcessed + " existing chunks.");
+                    return;
+                }
+                boolean wasLoaded = world.isChunkLoaded(position.x, position.z);
+                if (!wasLoaded && !world.loadChunk(position.x, position.z, false)) {
+                    continue;
+                }
+                if (!wasLoaded && plugin.getConfig().getBoolean("scan.unload-after-scan", true)) {
+                    pendingUnload.add(position);
+                }
+                org.bukkit.Chunk chunk = world.getChunkAt(position.x, position.z);
+                for (BlockState state : chunk.getTileEntities()) {
+                    if (!(state instanceof InventoryHolder) || !isSupported(state)) {
+                        continue;
+                    }
+                    Block block = state.getBlock();
+                    plugin.getContainerRegistry().addContainer(job.worldName, block.getX(), block.getY(),
+                            block.getZ(), block.getType().name());
+                }
+                job.chunksProcessed++;
+            }
+        } catch (java.io.IOException exception) {
+            plugin.getLogger().warning("Registry rebuild failed for " + job.worldName + ": " + exception.getMessage());
+            finishRegistryRebuild(false, "Registry rebuild failed while reading saved world chunks.");
+            return;
+        }
+        unloadDrainedChunks();
+    }
+
+    private ScanQueue.ChunkPosition nextRegistryChunk(RegistryRebuildJob job) throws java.io.IOException {
+        if (!job.loadedChunks.isEmpty()) {
+            return job.loadedChunks.poll();
+        }
+        RegionChunkScanner.ChunkCoordinate coordinate;
+        do {
+            coordinate = job.scanner.nextChunk();
+        } while (coordinate != null && job.loadedChunkKeys.contains(chunkKey(coordinate.x, coordinate.z)));
+        return coordinate == null ? null : new ScanQueue.ChunkPosition(job.worldName, coordinate.x, coordinate.z);
+    }
+
+    private long chunkKey(int x, int z) {
+        return (((long) x) << 32) ^ (z & 0xffffffffL);
+    }
+
+    private void finishRegistryRebuild(boolean completed, String message) {
+        RegistryRebuildJob finished = registryRebuildJob;
+        if (finished == null) {
+            return;
+        }
+        registryRebuildJob = null;
+        plugin.getContainerRegistry().markWorldBuilt(finished.worldName, completed);
+        plugin.saveContainerData();
+        if (finished.sender != null) {
+            finished.sender.sendMessage((completed ? org.bukkit.ChatColor.GREEN : org.bukkit.ChatColor.RED)
+                    + message);
+        }
+        if (task != null) {
+            task.cancel();
+            task = null;
+        }
+        unloadDrainedChunks();
+        if (completed) {
+            startNextRegionRefill();
         }
     }
 
@@ -440,7 +601,7 @@ public class ScanManager {
     }
 
     private void startNextRegionRefill() {
-        while (activeJob == null && !pendingRefills.isEmpty()) {
+        while (!isActive() && !pendingRefills.isEmpty()) {
             LootRegion region = pendingRefills.poll();
             World world = Bukkit.getWorld(region.getWorldName());
             if (world == null || plugin.getTableRegistry().getTable(region.getTableName()) == null) {
@@ -476,6 +637,26 @@ public class ScanManager {
             this.tableName = tableName;
             this.loadedOnly = loadedOnly;
             this.region = region;
+        }
+    }
+
+    private static class RegistryRebuildJob {
+        private final String worldName;
+        private final CommandSender sender;
+        private final RegionChunkScanner scanner;
+        private final Deque<ScanQueue.ChunkPosition> loadedChunks;
+        private final Set<Long> loadedChunkKeys;
+        private long chunksProcessed;
+        private boolean paused;
+        private boolean cancelled;
+
+        private RegistryRebuildJob(String worldName, CommandSender sender, RegionChunkScanner scanner,
+                                   Deque<ScanQueue.ChunkPosition> loadedChunks, Set<Long> loadedChunkKeys) {
+            this.worldName = worldName;
+            this.sender = sender;
+            this.scanner = scanner;
+            this.loadedChunks = loadedChunks;
+            this.loadedChunkKeys = loadedChunkKeys;
         }
     }
 }

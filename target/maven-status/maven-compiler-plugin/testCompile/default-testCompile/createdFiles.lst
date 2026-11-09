@@ -2,6 +2,7 @@ com/lootmanager/data/GeneratedContainerStoreTest.class
 com/lootmanager/loot/LootTableTest.class
 com/lootmanager/loot/LootGeneratorTest.class
 com/lootmanager/ResourceDefaultsTest.class
+com/lootmanager/scan/RegionChunkScannerTest.class
 com/lootmanager/region/RegionManagerTest.class
 com/lootmanager/data/ContainerRegistryTest.class
 com/lootmanager/loot/LootTableRegistryTest.class

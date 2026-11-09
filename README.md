@@ -1,6 +1,6 @@
 # LootManager
 
-Current implementation version: 1.1.1
+Current implementation version: 1.1.2
 
 PLUGIN NAME:
 LootManager
@@ -842,6 +842,11 @@ Unloads newly loaded chunks after their queued containers are processed.
 World fills use the explicitly named world's world-border bounds to select
 registered containers. A registry must be built once for the world and is
 then kept current by container block-place and block-break events.
+
+Registry rebuilds inspect saved chunk entries from the world's region files,
+including chunks that were unloaded when the command started. Existing chunks
+are loaded gradually within the world border; ungenerated chunks are not
+created. Use /loot progress to monitor the rebuild and /loot cancel to stop it.
 
 ==================================================
 SCAN PROGRESS

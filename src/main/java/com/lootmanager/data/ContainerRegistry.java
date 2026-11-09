@@ -4,13 +4,18 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ContainerRegistry {
 
     private YamlConfiguration config;
+    private final Map<String, Set<String>> coordinateIndexes = new HashMap<String, Set<String>>();
+    private final Map<String, Integer> nextIndexes = new HashMap<String, Integer>();
 
     public ContainerRegistry(YamlConfiguration config) {
         this.config = config;
@@ -18,6 +23,8 @@ public class ContainerRegistry {
 
     public void loadFromConfig(YamlConfiguration config) {
         this.config = config;
+        coordinateIndexes.clear();
+        nextIndexes.clear();
     }
 
     public void saveToConfig(YamlConfiguration target) {
@@ -49,16 +56,17 @@ public class ContainerRegistry {
         if (containerSection == null) {
             containerSection = worldSection.createSection("containers");
         }
-        for (String key : containerSection.getKeys(false)) {
-            if (matches(containerSection.getConfigurationSection(key), x, y, z)) {
-                return;
-            }
+        Set<String> coordinates = getCoordinateIndex(encodedWorld);
+        if (!coordinates.add(coordinateKey(x, y, z))) {
+            return;
         }
-        String nextKey = nextIndex(containerSection);
+        int nextIndex = getNextIndex(encodedWorld, containerSection);
+        String nextKey = Integer.toString(nextIndex);
         containerSection.set(nextKey + ".x", x);
         containerSection.set(nextKey + ".y", y);
         containerSection.set(nextKey + ".z", z);
         containerSection.set(nextKey + ".type", type == null ? "UNKNOWN" : type);
+        nextIndexes.put(encodedWorld, nextIndex + 1);
     }
 
     public void removeContainer(String world, int x, int y, int z) {
@@ -71,6 +79,7 @@ public class ContainerRegistry {
         if (containerSection == null) {
             return;
         }
+        getCoordinateIndex(encodedWorld).remove(coordinateKey(x, y, z));
         for (String key : new ArrayList<String>(containerSection.getKeys(false))) {
             ConfigurationSection entry = containerSection.getConfigurationSection(key);
             if (matches(entry, x, y, z)) {
@@ -113,9 +122,14 @@ public class ContainerRegistry {
             return;
         }
         config.set("worlds." + encodeWorld(world), null);
+        coordinateIndexes.remove(encodeWorld(world));
+        nextIndexes.remove(encodeWorld(world));
     }
 
     private Map<String, Object> getContainer(String world, int x, int y, int z) {
+        if (!getCoordinateIndex(encodeWorld(world)).contains(coordinateKey(x, y, z))) {
+            return null;
+        }
         for (Map<String, Object> entry : getContainers(world)) {
             if (matches(entry, x, y, z)) {
                 return entry;
@@ -186,7 +200,29 @@ public class ContainerRegistry {
                 && Integer.parseInt(String.valueOf(zValue)) == z;
     }
 
-    private String nextIndex(ConfigurationSection containerSection) {
+    private Set<String> getCoordinateIndex(String encodedWorld) {
+        Set<String> coordinates = coordinateIndexes.get(encodedWorld);
+        if (coordinates != null) {
+            return coordinates;
+        }
+        coordinates = new HashSet<String>();
+        for (Map<String, Object> entry : getContainersInternal(encodedWorld)) {
+            Object x = entry.get("x");
+            Object y = entry.get("y");
+            Object z = entry.get("z");
+            if (x != null && y != null && z != null) {
+                coordinates.add(coordinateKey(String.valueOf(x), String.valueOf(y), String.valueOf(z)));
+            }
+        }
+        coordinateIndexes.put(encodedWorld, coordinates);
+        return coordinates;
+    }
+
+    private int getNextIndex(String encodedWorld, ConfigurationSection containerSection) {
+        Integer cached = nextIndexes.get(encodedWorld);
+        if (cached != null) {
+            return cached;
+        }
         int next = 0;
         for (String key : containerSection.getKeys(false)) {
             try {
@@ -195,7 +231,15 @@ public class ContainerRegistry {
                 // Ignore non-numeric keys.
             }
         }
-        return Integer.toString(next);
+        return next;
+    }
+
+    private String coordinateKey(int x, int y, int z) {
+        return coordinateKey(Integer.toString(x), Integer.toString(y), Integer.toString(z));
+    }
+
+    private String coordinateKey(String x, String y, String z) {
+        return x + ":" + y + ":" + z;
     }
 
     private Map<String, Object> copySection(ConfigurationSection section) {

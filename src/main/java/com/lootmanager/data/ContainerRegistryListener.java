@@ -25,7 +25,8 @@ public class ContainerRegistryListener implements Listener {
     public void onBlockPlace(BlockPlaceEvent event) {
         Block block = event.getBlockPlaced();
         String world = block.getWorld().getName();
-        if (!registry.isWorldBuilt(world) || !isTrackedContainer(block)) {
+        if ((!registry.isWorldBuilt(world) && !plugin.getScanManager().isRegistryRebuilding(world))
+            || !isTrackedContainer(block)) {
             return;
         }
         registry.addContainer(world, block.getX(), block.getY(), block.getZ(), block.getType().name());
@@ -36,7 +37,8 @@ public class ContainerRegistryListener implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Block block = event.getBlock();
         String world = block.getWorld().getName();
-        if (!registry.isWorldBuilt(world) || !isTrackedContainer(block)) {
+        if ((!registry.isWorldBuilt(world) && !plugin.getScanManager().isRegistryRebuilding(world))
+            || !isTrackedContainer(block)) {
             return;
         }
         registry.removeContainer(world, block.getX(), block.getY(), block.getZ());

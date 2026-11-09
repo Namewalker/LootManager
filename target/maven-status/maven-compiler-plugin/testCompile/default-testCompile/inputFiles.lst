@@ -5,4 +5,5 @@
 /workspaces/LootManager/src/test/java/com/lootmanager/data/GeneratedContainerStoreTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/loot/LootTableRegistryTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/loot/LootTableTest.java
+/workspaces/LootManager/src/test/java/com/lootmanager/scan/RegionChunkScannerTest.java
 /workspaces/LootManager/src/test/java/com/lootmanager/scan/ScanQueueTest.java

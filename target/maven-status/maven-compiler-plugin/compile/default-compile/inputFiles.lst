@@ -13,5 +13,6 @@
 /workspaces/LootManager/src/main/java/com/lootmanager/loot/LootTable.java
 /workspaces/LootManager/src/main/java/com/lootmanager/data/ContainerRegistry.java
 /workspaces/LootManager/src/main/java/com/lootmanager/LootManagerPlugin.java
+/workspaces/LootManager/src/main/java/com/lootmanager/scan/RegionChunkScanner.java
 /workspaces/LootManager/src/main/java/com/lootmanager/region/LootRegion.java
 /workspaces/LootManager/src/main/java/com/lootmanager/command/LootTabCompleter.java
